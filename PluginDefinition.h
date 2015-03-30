@@ -87,5 +87,7 @@ void bgnnrsGd();
 void about();
 string getPath();
 string getFileName();
+string getNPPDirectory();
+void getAllOpenFiles();
 
 #endif //PLUGINDEFINITION_H

@@ -21,6 +21,8 @@
 #include "menuCmdID.h"
 #include <fstream>
 #include <stdlib.h>
+#include <vector>
+#include <locale>
 using namespace std;
 
 //
@@ -64,18 +66,37 @@ void commandMenuInit()
     //            ShortcutKey *shortcut,          // optional. Define a shortcut to trigger this command
     //            bool check0nInit                // optional. Make this menu item be checked visually
     //            );
-	setCommand(0, TEXT("Compile"), compile, NULL, false);
-    setCommand(1, TEXT("Compile and Run"), compileAndRun, NULL, false);
+
+    ShortcutKey *Compile_key = new ShortcutKey;
+    Compile_key->_isAlt      = false;
+    Compile_key->_isCtrl     = true;
+    Compile_key->_isShift    = true;
+    Compile_key->_key        = 0x76; // F7 Key
+    
+    ShortcutKey *Run_key = new ShortcutKey;
+    Run_key->_isAlt      = false;
+    Run_key->_isCtrl     = true;
+    Run_key->_isShift    = true;
+    Run_key->_key        = 0x74; // F5 Key
+    
+    ShortcutKey *Java_key = new ShortcutKey;
+    Java_key->_isAlt      = false;
+    Java_key->_isCtrl     = true;
+    Java_key->_isShift    = true;
+    Java_key->_key        = 0x4A; // J Key
+
+	setCommand(0, TEXT("Compile"), compile, Compile_key, false);
+    setCommand(1, TEXT("Compile and Run"), compileAndRun, Run_key, false);
 	setCommand(2, TEXT("---"), NULL, NULL, false);
 	setCommand(3, TEXT("JAR File Creator"), helloDlg, NULL, false);
 	setCommand(4, TEXT("Tab Checker"), helloDlg, NULL, false);
 	setCommand(5, TEXT("Compare Files"), helloDlg, NULL, false);
-	setCommand(6, TEXT("Connect to Java Documentation"),cnctJvDc, NULL, false);
+	setCommand(6, TEXT("Connect to Java Documentation"),cnctJvDc, Java_key, false);
 	setCommand(7, TEXT("Connect to StackOverflow"),cnctStckOvrflw, NULL, false);
 	setCommand(8, TEXT("Connect to GitBash"), cnctgtbsh, NULL, false);
 	setCommand(9, TEXT("Beginner's Guide"), bgnnrsGd, NULL, false);
 	setCommand(10, TEXT("---"), NULL, NULL, false);
-	setCommand(11, TEXT("About"),helloDlg, NULL, false);
+	setCommand(11, TEXT("About"),about, NULL, false);
 }
 
 //
@@ -133,7 +154,6 @@ void helloDlg()
 
 string getPath()
 {
-    SendMessageA(nppData._nppHandle, NPPM_SAVECURRENTFILE,0,0);
     wchar_t *fullPath = new wchar_t[MAX_PATH];
     SendMessageA(nppData._nppHandle, NPPM_GETCURRENTDIRECTORY,0,(LPARAM)fullPath);
     wstring fP = fullPath;
@@ -146,6 +166,31 @@ string getFileName()
     SendMessageA(nppData._nppHandle, NPPM_GETFILENAME, 0, (LPARAM)name);
     wstring ws = name;
     return string(ws.begin(),ws.end());
+}
+
+string getNPPDirectory()
+{
+	wchar_t *directory = new wchar_t[MAX_PATH];
+	SendMessageA(nppData._nppHandle, NPPM_GETNPPDIRECTORY, 0, (LPARAM)directory);
+	wstring ws = directory;
+    return string(ws.begin(),ws.end());
+}
+
+void getAllOpenFiles()
+{
+	int num_files = SendMessage(nppData._nppHandle, NPPM_GETNBOPENFILES, 0, ALL_OPEN_FILES);
+
+	vector< vector<TCHAR> > file_name_bufs(num_files);
+	vector< TCHAR* > file_name_ptrs(num_files);
+	ofstream (fileNames);
+	fileNames.open("C:/Users/Justin George/Desktop/fileWithAllOpenFileNames.txt");
+	for (int i=0; i<num_files; i++) 
+	{
+		file_name_bufs[i].resize(MAX_PATH);
+		file_name_ptrs[i] = &file_name_bufs[i][0];
+		fileNames << &file_name_ptrs[i];
+		fileNames << "\n";
+	}
 }
 
 void compile()
@@ -161,17 +206,14 @@ void compile()
 
 	//making a log file
 	string log = "log_" + fileName + ".txt" ;
-	string logPath = path + "//" + log;
-
-	//creating a path for the cmd in labs
-	//string setJavaPath = "set path=%path%;C:\Program Files\Java\jdk1.7.0_21\bin";
+	string logPath = path + "//"+ log;
 
 	//combine the strings together to make one command
 	string compileAndRedirCommand = "/k cd /d" + path + " & javac " + fileName + " 2> " + log;
 	string compileCommand = "/k cd /d" + path + " & javac " + fileName;
 
 	//Open Command Prompt and pipe program to JDK and redirect output to log file
-	ShellExecuteA(NULL, "open", "C:/WINDOWS/system32/cmd.exe", compileAndRedirCommand.c_str(), NULL, SW_SHOW);
+	ShellExecuteA(NULL, "open", "C:/WINDOWS/system32/cmd.exe", compileAndRedirCommand.c_str(), NULL, SW_HIDE);
 	Sleep(2000);
 
 	//check log file, if empty, compiling success, else fail and show errors
@@ -216,7 +258,7 @@ void compileAndRun()
 	if (rtnFlg != 1)
 	{
 		string runCommand = "/k cd /d" + path + " & java " + fileName;
-		ShellExecuteA(NULL, "open", "C:/WINDOWS/system32/cmd.exe", runCommand.c_str(), NULL, SW_HIDE);
+		ShellExecuteA(NULL, "open", "C:/WINDOWS/system32/cmd.exe", runCommand.c_str(), NULL, SW_SHOW);
 	}
 
 }
@@ -253,9 +295,9 @@ void cnctStckOvrflw()
 
 void cnctgtbsh()
 {
-	ifstream conFilepath;
-	conFilepath.open("C:/Program Files (x86)/Notepad++/plugins/Config/PESMU/config.txt");
-	if(conFilepath.fail())
+    string bshPath = getNPPDirectory()+ "/plugins/Config/PESMU/config.txt";
+	ifstream conFilepath(bshPath);
+    if(conFilepath.fail())
 	{
 		::MessageBox(NULL, TEXT("The config.txt file is not found or corrupt. Please replace the document."), TEXT("PESMU Plugin"), MB_OK);
 		return;
@@ -271,11 +313,33 @@ void cnctgtbsh()
 
 void bgnnrsGd()
 {
-	string guidepath = "C:/Program Files (x86)/Notepad++/plugins/doc/PESMU/BeginnersGuide.mht";
-	ShellExecuteA(NULL,"open",guidepath.c_str(),NULL,NULL,SW_SHOW);
+    string gdPth = getNPPDirectory() + "/plugins/doc/PESMU/BeginnersGuide.mht";
+	ShellExecuteA(NULL,"open",gdPth.c_str(),NULL,NULL,SW_SHOW);
 }
 
 void about()
 {
-	
+	vector<wstring> vps;
+	vector<TCHAR*> wps;
+	int n = SendMessage(nppData._nppHandle,NPPM_GETNBOPENFILES,0,ALL_OPEN_FILES);
+	if( n > 0 && n <128 )
+	{
+		wps.resize(n);
+		for( int i = 0;i < n;i++ )
+		{
+			wstring ws;
+			ws.resize(512);
+			vps.push_back(ws);
+			wps[i] = (TCHAR*)vps[i].c_str();
+		}
+		SendMessage(nppData._nppHandle,NPPM_GETOPENFILENAMES,(LPARAM)&wps[0],n);
+	}
+	wofstream (names);
+	names.open("C:/Users/Justin George/Desktop/names.txt");
+	for ( int i = 0;i < n;i++ )
+	{
+		names << vps[i].c_str();
+		names << "\n";
+	}
+	names.close();
 }
